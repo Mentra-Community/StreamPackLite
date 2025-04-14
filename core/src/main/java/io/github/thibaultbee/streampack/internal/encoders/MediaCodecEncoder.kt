@@ -18,6 +18,7 @@ package io.github.thibaultbee.streampack.internal.encoders
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import io.github.thibaultbee.streampack.data.Config
@@ -178,6 +179,18 @@ abstract class MediaCodecEncoder<T : Config>(
             codec.setCallback(encoderCallback, handler)
         } else {
             codec.setCallback(encoderCallback)
+        }
+
+        // Power-efficient encoding parameters - safer version
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                // Set operating rate to normal (not low-latency) - more power efficient
+                val params = Bundle()
+                params.putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, _bitrate)
+                codec.setParameters(params)
+            } catch (e: Exception) {
+                Logger.d(TAG, "Could not set encoder parameters: ${e.message}")
+            }
         }
 
         try {

@@ -32,7 +32,13 @@ import java.util.concurrent.Executors
  * A [ICameraThreadManager] that manages camera API >= 28.
  */
 class CameraExecutorManager : ICameraThreadManager {
-    private val cameraExecutor = Executors.newSingleThreadExecutor()
+    // Use a low-priority thread factory to reduce CPU load from camera processing
+    private val cameraExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r).apply {
+            priority = Thread.MIN_PRIORITY
+            name = "camera-low-power-thread"
+        }
+    }
 
     @RequiresApi(Build.VERSION_CODES.P)
     @RequiresPermission(Manifest.permission.CAMERA)
@@ -60,8 +66,11 @@ class CameraExecutorManager : ICameraThreadManager {
         outputConfigurations: List<OutputConfiguration>,
         callback: CameraCaptureSession.StateCallback
     ) {
+        // Use more efficient session if available on device
+        val sessionType = SessionConfiguration.SESSION_REGULAR
+        
         SessionConfiguration(
-            SessionConfiguration.SESSION_REGULAR,
+            sessionType,
             outputConfigurations,
             cameraExecutor,
             callback

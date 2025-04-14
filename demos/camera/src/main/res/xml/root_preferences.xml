@@ -6,6 +6,11 @@
             android:defaultValue="true"
             app:key="@string/video_enable_key"
             app:title="@string/video_enable" />
+            
+        <SwitchPreference
+            android:defaultValue="true"
+            app:key="@string/video_power_saving_key"
+            app:title="@string/video_power_saving" />
 
         <PreferenceCategory
             app:key="@string/video_settings_key"
@@ -24,7 +29,7 @@
                 app:useSimpleSummaryProvider="true" />
 
             <ListPreference
-                app:defaultValue="30"
+                app:defaultValue="24"
                 app:entries="@array/FpsEntries"
                 app:entryValues="@array/FpsEntries"
                 app:key="@string/video_fps_key"
@@ -33,7 +38,7 @@
 
             <SeekBarPreference
                 android:max="10000"
-                app:defaultValue="2000"
+                app:defaultValue="500"
                 app:key="@string/video_bitrate_key"
                 app:min="500"
                 app:showSeekBarValue="true"
@@ -71,7 +76,7 @@
                 app:useSimpleSummaryProvider="true" />
 
             <ListPreference
-                app:defaultValue="2"
+                app:defaultValue="1"
                 app:entries="@array/AudioNumberOfChannelsEntries"
                 app:entryValues="@array/AudioNumberOfChannelsEntryValues"
                 app:key="@string/audio_number_of_channels_key"
@@ -79,14 +84,14 @@
                 app:useSimpleSummaryProvider="true" />
 
             <ListPreference
-                app:defaultValue="128000"
+                app:defaultValue="24000"
                 app:entryValues="@array/AudioBitrateEntryValues"
                 app:key="@string/audio_bitrate_key"
                 app:title="@string/audio_bitrate"
                 app:useSimpleSummaryProvider="true" />
 
             <ListPreference
-                app:defaultValue="44100"
+                app:defaultValue="16000"
                 app:key="@string/audio_sample_rate_key"
                 app:title="@string/audio_sample_rate"
                 app:useSimpleSummaryProvider="true" />
@@ -171,13 +176,13 @@
                 app:useSimpleSummaryProvider="true" />
 
             <SwitchPreference
-                android:defaultValue="false"
+                android:defaultValue="true"
                 app:key="@string/server_enable_bitrate_regulation_key"
                 app:title="@string/server_enable_bitrate_regulation" />
 
             <SeekBarPreference
                 android:max="10000"
-                app:defaultValue="5000"
+                app:defaultValue="500"
                 app:key="@string/server_video_target_bitrate_key"
                 app:min="500"
                 app:showSeekBarValue="true"
@@ -186,7 +191,7 @@
 
             <SeekBarPreference
                 android:max="10000"
-                app:defaultValue="300"
+                app:defaultValue="100"
                 app:key="@string/server_video_min_bitrate_key"
                 app:min="100"
                 app:showSeekBarValue="true"

@@ -130,10 +130,20 @@ class VideoMediaCodecEncoder(
         private var eglSurface: EglWindowSurface? = null
         private var fullFrameRect: FullFrameRect? = null
         private var textureId = -1
-        private val executor = Executors.newSingleThreadExecutor()
+        // Single thread with minimal priority executor for power savings
+        private val executor = Executors.newSingleThreadExecutor { r -> 
+            Thread(r).apply { 
+                priority = Thread.MIN_PRIORITY 
+                name = "encoder-power-save-thread"
+            } 
+        }
         private var isRunning = false
         private var surfaceTexture: SurfaceTexture? = null
         private val stMatrix = FloatArray(16)
+        
+        // Power optimization: batch frame processing to reduce wake-ups - strict 24fps cap
+        private var lastFrameTimeMs = 0L
+        private val minFrameIntervalMs = 41L // ~24fps max to match video encoding settings
 
         private var _inputSurface: Surface? = null
         val inputSurface: Surface?
@@ -247,6 +257,17 @@ class VideoMediaCodecEncoder(
         override fun onFrameAvailable(surfaceTexture: SurfaceTexture) {
             if (!isRunning) {
                 return
+            }
+            
+            // Aggressive frame throttling strictly capped at 24fps
+            val currentTimeMs = System.currentTimeMillis()
+            // Only throttle if we're already processing frames (not on startup)
+            if (surfaceTexture != null && !surfaceTexture!!.timestamp.equals(0L)) {
+                if (currentTimeMs - lastFrameTimeMs < minFrameIntervalMs) {
+                    // Skip frames to strictly maintain 24fps - saving significant CPU
+                    return
+                }
+                lastFrameTimeMs = currentTimeMs
             }
 
             executor.execute {

@@ -214,12 +214,20 @@ class PreviewViewModel(private val streamerManager: StreamerManager) : Observabl
 
     private fun notifyCameraChanged() {
         streamerManager.cameraSettings?.let {
-            // Set optical stabilization first
-            // Do not set both video and optical stabilization at the same time
-            if (it.stabilization.availableOptical) {
-                it.stabilization.enableOptical = true
-            } else {
-                it.stabilization.enableVideo = true
+            // Power saving settings
+            it.stabilization.enableOptical = false
+            it.stabilization.enableVideo = false
+            
+            // Set low-resolution preview to save power - removed as cameraSource is not directly accessible
+            // We'll rely on the PreviewView optimization instead
+            
+            // Use auto focus instead of continuous to save power
+            try {
+                if (it.focus.availableAutoModes.contains(CaptureResult.CONTROL_AF_MODE_AUTO)) {
+                    it.focus.autoMode = CaptureResult.CONTROL_AF_MODE_AUTO
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to set focus mode: ${e.message}")
             }
 
             isAutoWhiteBalanceAvailable.postValue(it.whiteBalance.availableAutoModes.size > 1)

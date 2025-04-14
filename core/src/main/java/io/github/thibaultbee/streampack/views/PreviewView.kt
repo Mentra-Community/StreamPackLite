@@ -328,10 +328,11 @@ class PreviewView @JvmOverloads constructor(
     ): ViewfinderSurfaceRequest {
         /**
          * Get the closest available preview size to the view size.
+         * Using a smaller target size (160x120) to save power.
          */
         val previewSize = getPreviewOutputSize(
             context.getCameraCharacteristics(camera),
-            targetViewSize,
+            Size(160, 120), // Small preview size to save power, but not too small to cause compatibility issues
             SurfaceHolder::class.java
         )
 

@@ -166,6 +166,9 @@ class StreamerManager(
                 null
             }
         }
+        
+    // Expose the private streamer property
+    fun getStreamer(): IStreamer? = streamer
 
     var isMuted: Boolean
         get() = streamer?.settings?.audio?.isMuted ?: true

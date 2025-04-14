@@ -30,6 +30,7 @@ import io.github.thibaultbee.streampack.internal.utils.extensions.deviceOrientat
 import io.github.thibaultbee.streampack.internal.utils.extensions.isDevicePortrait
 import io.github.thibaultbee.streampack.internal.utils.extensions.landscapize
 import io.github.thibaultbee.streampack.internal.utils.extensions.portraitize
+import io.github.thibaultbee.streampack.logger.Logger
 import io.github.thibaultbee.streampack.utils.CameraSettings
 import io.github.thibaultbee.streampack.utils.cameraList
 import io.github.thibaultbee.streampack.utils.defaultCameraId
@@ -45,6 +46,9 @@ class CameraSource(
 ) : IVideoSource {
     var previewSurface: Surface? = null
     override var encoderSurface: Surface? = null
+    
+    // Set an extremely low-resolution preview size for maximum power saving
+    var maxPreviewSize: Size = Size(160, 120) // Quarter QQVGA resolution
 
     var cameraId: String = context.defaultCameraId
         get() = cameraController.cameraId ?: field
@@ -87,19 +91,66 @@ class CameraSource(
 
     @RequiresPermission(Manifest.permission.CAMERA)
     suspend fun startPreview(cameraId: String = this.cameraId, restartStream: Boolean = false) {
-        var targets = mutableListOf<Surface>()
-        previewSurface?.let { targets.add(it) }
-        encoderSurface?.let { targets.add(it) }
-        cameraController.startCamera(cameraId, targets, dynamicRangeProfile.dynamicRange)
-
-        targets = mutableListOf()
-        previewSurface?.let { targets.add(it) }
-        if (restartStream) {
-            encoderSurface?.let { targets.add(it) }
+        try {
+            // First, collect all surfaces for camera initialization
+            var targets = mutableListOf<Surface>()
+            val localPreviewSurface = previewSurface
+            if (localPreviewSurface != null) {
+                if (localPreviewSurface.isValid) {
+                    targets.add(localPreviewSurface) 
+                    Logger.d(TAG, "Adding valid preview surface to camera targets")
+                } else {
+                    Logger.w(TAG, "Preview surface is invalid, skipping")
+                }
+            } else {
+                Logger.d(TAG, "No preview surface available")
+            }
+            
+            val localEncoderSurface = encoderSurface
+            if (localEncoderSurface != null) {
+                if (localEncoderSurface.isValid) {
+                    targets.add(localEncoderSurface)
+                    Logger.d(TAG, "Adding valid encoder surface to camera targets") 
+                } else {
+                    Logger.w(TAG, "Encoder surface is invalid, skipping")
+                }
+            } else {
+                Logger.d(TAG, "No encoder surface available")
+            }
+            
+            if (targets.isEmpty()) {
+                Logger.e(TAG, "No valid surfaces available for camera preview")
+                return
+            }
+            
+            // Start the camera with all available surfaces
+            Logger.i(TAG, "Starting camera $cameraId with ${targets.size} surfaces")
+            cameraController.startCamera(cameraId, targets, dynamicRangeProfile.dynamicRange)
+            
+            // Now create targets for the request session
+            targets = mutableListOf()
+            
+            val surfaceForRequest = previewSurface
+            if (surfaceForRequest != null && surfaceForRequest.isValid) {
+                targets.add(surfaceForRequest)
+            }
+            
+            if (restartStream) {
+                val encoderSurfaceForRequest = encoderSurface
+                if (encoderSurfaceForRequest != null && encoderSurfaceForRequest.isValid) {
+                    targets.add(encoderSurfaceForRequest)
+                }
+            }
+            
+            Logger.i(TAG, "Starting request session with ${targets.size} surfaces at $fps fps")
+            cameraController.startRequestSession(fps, targets)
+            isPreviewing = true
+            orientationProvider.cameraId = cameraId
+            Logger.i(TAG, "Camera preview started successfully")
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error starting camera preview", e)
+            throw e
         }
-        cameraController.startRequestSession(fps, targets)
-        isPreviewing = true
-        orientationProvider.cameraId = cameraId
     }
 
     fun stopPreview() {
@@ -178,5 +229,9 @@ class CameraSource(
         override fun getDefaultBufferSize(size: Size): Size {
             return Size(max(size.width, size.height), min(size.width, size.height))
         }
+    }
+    
+    companion object {
+        private const val TAG = "CameraSource"
     }
 }

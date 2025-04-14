@@ -43,17 +43,20 @@ class Configuration(context: Context) {
     ) {
         var enable: Boolean = true
             get() = sharedPref.getBoolean(resources.getString(R.string.video_enable_key), field)
+            
+        var powerSavingMode: Boolean = true
+            get() = sharedPref.getBoolean(resources.getString(R.string.video_power_saving_key), field)
 
         var encoder: String = MediaFormat.MIMETYPE_VIDEO_AVC
             get() = sharedPref.getString(resources.getString(R.string.video_encoder_key), field)!!
 
-        var fps: Int = 30
+        var fps: Int = 15 // Lower framerate to reduce CPU usage
             get() = sharedPref.getString(
                 resources.getString(R.string.video_fps_key),
                 field.toString()
             )!!.toInt()
 
-        var resolution: Size = Size(1280, 720)
+        var resolution: Size = Size(176, 144) // QCIF resolution - small but still usable
             get() {
                 val res = sharedPref.getString(
                     resources.getString(R.string.video_resolution_key),
@@ -66,7 +69,7 @@ class Configuration(context: Context) {
                 )
             }
 
-        var bitrate: Int = 2000
+        var bitrate: Int = 250 // Low bitrate (250 kbps) to reduce encoding load
             get() = sharedPref.getInt(resources.getString(R.string.video_bitrate_key), field)
 
         var profile: Int = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline
@@ -99,19 +102,19 @@ class Configuration(context: Context) {
         var encoder: String = MediaFormat.MIMETYPE_AUDIO_AAC
             get() = sharedPref.getString(resources.getString(R.string.audio_encoder_key), field)!!
 
-        var numberOfChannels: Int = 2
+        var numberOfChannels: Int = 1
             get() = sharedPref.getString(
                 resources.getString(R.string.audio_number_of_channels_key),
                 field.toString()
             )!!.toInt()
 
-        var bitrate: Int = 128000
+        var bitrate: Int = 24000
             get() = sharedPref.getString(
                 resources.getString(R.string.audio_bitrate_key),
                 field.toString()
             )!!.toInt()
 
-        var sampleRate: Int = 48000
+        var sampleRate: Int = 16000
             get() = sharedPref.getString(
                 resources.getString(R.string.audio_sample_rate_key),
                 field.toString()
@@ -211,13 +214,13 @@ class Configuration(context: Context) {
                     field
                 )!!
 
-            var enableBitrateRegulation: Boolean = false
+            var enableBitrateRegulation: Boolean = true
                 get() = sharedPref.getBoolean(
                     resources.getString(R.string.server_enable_bitrate_regulation_key),
                     field
                 )
 
-            var videoBitrateRange: Range<Int> = Range(300, 5000000)
+            var videoBitrateRange: Range<Int> = Range(100, 500000)
                 get() = Range(
                     sharedPref.getInt(
                         resources.getString(R.string.server_video_min_bitrate_key),
