@@ -202,13 +202,15 @@ class CameraSource(
                 }
             }
 
+        // Note: These modified values are for Mentra Live & because this version of
+        // StreamPack does not include a rotation parameter
         override val orientation: Int
             get() = when (context.deviceOrientation) {
-                Surface.ROTATION_0 -> 0
-                Surface.ROTATION_90 -> 270
-                Surface.ROTATION_180 -> 180
-                Surface.ROTATION_270 -> 90
-                else -> 0
+                Surface.ROTATION_0 -> 270    // Fix: was 0
+                Surface.ROTATION_90 -> 180   // Fix: was 270
+                Surface.ROTATION_180 -> 90   // Fix: was 180
+                Surface.ROTATION_270 -> 0    // Fix: was 90
+                else -> 270                  // Fix: was 0
             }
 
         private fun isFrontFacing(cameraId: String): Boolean {
