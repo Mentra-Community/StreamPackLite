@@ -75,6 +75,13 @@ class RtmpProducer(
         }
     }
 
+    // Track last video packet time to manage packet queuing
+    private var lastVideoTimeMs = 0L
+    private var isBackpressured = false
+    private var packetCounter = 0
+    private var lastLogTime = 0L
+    private val MAX_BACKLOG_MS = 500 // Drop frames if we're more than 500ms behind
+
     override fun write(packet: Packet) {
         synchronized(this) {
             if (isOnError) {
@@ -84,6 +91,39 @@ class RtmpProducer(
             if (!isConnected) {
                 Logger.w(TAG, "Socket is not connected, dropping packet")
                 return
+            }
+
+            val now = System.currentTimeMillis()
+            
+            // For video packets, implement backpressure detection and recovery
+            if (packet.isVideo) {
+                // Log statistics periodically
+                if (packetCounter++ % 100 == 0) {
+                    if (now - lastLogTime > 1000) { // Max once per second
+                        Logger.d(TAG, "RTMP stats: backpressured=${isBackpressured}, " +
+                                     "timeSinceLastVideo=${now - lastVideoTimeMs}ms")
+                        lastLogTime = now
+                    }
+                }
+                
+                // Critical latency management: if we're severely backlogged,
+                // selectively drop packets to catch up
+                if (isBackpressured) {
+                    // Skip some video frames when backpressured
+                    // We can't easily detect keyframes in this class, so we'll use
+                    // a simple sampling approach - keep 1 out of every 3 packets
+                    if (packetCounter % 3 != 0) {
+                        return
+                    }
+                }
+                
+                // Check if we're falling behind based on video packet timing
+                if (lastVideoTimeMs > 0) {
+                    val elapsed = now - lastVideoTimeMs
+                    // If time between video packets is very large, we're falling behind
+                    isBackpressured = elapsed > MAX_BACKLOG_MS
+                }
+                lastVideoTimeMs = now
             }
 
             try {

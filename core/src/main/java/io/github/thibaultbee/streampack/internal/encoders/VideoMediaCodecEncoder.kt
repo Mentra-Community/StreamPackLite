@@ -255,43 +255,85 @@ class VideoMediaCodecEncoder(
             }
         }
 
+        // Track how many frames we're dropping
+        private var totalFramesReceived = 0L
+        private var totalFramesProcessed = 0L
+        private var lastLogTime = 0L
+        
+        // System time when the first frame was received
+        private var streamStartTimeMs = 0L
+        
         override fun onFrameAvailable(surfaceTexture: SurfaceTexture) {
             if (!isRunning) {
                 return
             }
             
-            // Get the current time for frame rate control
+            // Initialize stream start time if needed
+            if (streamStartTimeMs == 0L) {
+                streamStartTimeMs = System.currentTimeMillis()
+            }
+            
+            // Count incoming frames for statistics
+            totalFramesReceived++
+            
+            // Get system time for frame rate control
             val currentTimeMs = System.currentTimeMillis()
             val timeSinceLastFrame = currentTimeMs - lastFrameTimeMs
             
-            // Process the frame immediately to avoid buffer growth
+            // CRITICAL: Skip enqueueing to executor if we're falling behind
+            // This prevents executor queue buildup which is a major cause of latency
+            if (timeSinceLastFrame < minFrameIntervalMs && lastFrameTimeMs > 0) {
+                // Skip this frame entirely - don't even queue it
+                return
+            }
+            
+            // Queue for processing only if we're not backed up
             executor.execute {
                 synchronized(this) {
+                    // Check running state again after potential queue delay
+                    if (!isRunning) return@synchronized
+                    
                     eglSurface?.let {
                         it.makeCurrent()
                         
-                        // Always update to the most recent image to prevent backlog
-                        // This is critical - ensures we're not building up frames
+                        // Critical: Aggressively flush ALL pending frames to get to latest
+                        // This ensures we stay current even with a burst of frames
                         var frameCount = 0
+                        var lastTimestamp: Long
                         do {
-                            // Keep consuming frames until we get to the latest one
+                            lastTimestamp = surfaceTexture.timestamp
                             surfaceTexture.updateTexImage()
                             frameCount++
-                        } while (frameCount < 5 && surfaceTexture.timestamp != 0L && 
-                                 timeSinceLastFrame > minFrameIntervalMs * 2)
+                        } while (frameCount < 20 && // Limit loop iterations for safety
+                               surfaceTexture.timestamp != 0L && 
+                               surfaceTexture.timestamp != lastTimestamp) // Stop when no new frames
                         
+                        // Get latest transform matrix
                         surfaceTexture.getTransformMatrix(stMatrix)
 
-                        // Only actually draw and send the frame if enough time has passed
-                        if (timeSinceLastFrame >= minFrameIntervalMs || lastFrameTimeMs == 0L) {
-                            // Use the identity matrix for MVP so our 2x2 FULL_RECTANGLE covers the viewport
-                            fullFrameRect?.drawFrame(textureId, stMatrix)
-                            it.setPresentationTime(surfaceTexture.timestamp)
-                            it.swapBuffers()
-                            lastFrameTimeMs = currentTimeMs
-                        }
+                        // Draw and send the frame
+                        fullFrameRect?.drawFrame(textureId, stMatrix)
+                        it.setPresentationTime(surfaceTexture.timestamp)
+                        it.swapBuffers()
+                        lastFrameTimeMs = currentTimeMs
+                        totalFramesProcessed++
                         
+                        // Release texture image
                         surfaceTexture.releaseTexImage()
+                        
+                        // Log statistics every 5 seconds
+                        if (currentTimeMs - lastLogTime > 5000) {
+                            val streamTimeSeconds = (currentTimeMs - streamStartTimeMs) / 1000.0
+                            val droppedFrames = totalFramesReceived - totalFramesProcessed
+                            val droppedPercent = if (totalFramesReceived > 0) 
+                                (droppedFrames * 100.0 / totalFramesReceived) else 0.0
+                            
+                            Logger.d(TAG, "Stream stats: Received=${totalFramesReceived}, " +
+                                         "Processed=${totalFramesProcessed}, " +
+                                         "Dropped=${droppedFrames} (${droppedPercent.toInt()}%), " +
+                                         "Avg FPS=${totalFramesProcessed / streamTimeSeconds}")
+                            lastLogTime = currentTimeMs
+                        }
                     }
                 }
             }
