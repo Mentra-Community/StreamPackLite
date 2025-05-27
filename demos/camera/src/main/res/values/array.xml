@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="FpsEntries">
+        <item>15</item>
         <item>24</item>
         <item>25</item>
         <item>30</item>

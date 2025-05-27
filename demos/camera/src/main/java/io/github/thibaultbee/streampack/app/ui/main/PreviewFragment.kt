@@ -177,19 +177,27 @@ class PreviewFragment : Fragment() {
     private fun createStreamer() {
         viewModel.createStreamer()
 
-        // Set camera settings button when camera is started
-        binding.preview.listener = object : PreviewView.Listener {
-            override fun onPreviewStarted() {
-                viewModel.onPreviewStarted()
+        // Check if preview is disabled in configuration
+        val configuration = Configuration(requireContext())
+        if (!configuration.video.disablePreview) {
+            // Set camera settings button when camera is started
+            binding.preview.listener = object : PreviewView.Listener {
+                override fun onPreviewStarted() {
+                    viewModel.onPreviewStarted()
+                }
+
+                override fun onZoomRationOnPinchChanged(zoomRatio: Float) {
+                    viewModel.onZoomRationOnPinchChanged()
+                }
             }
 
-            override fun onZoomRationOnPinchChanged(zoomRatio: Float) {
-                viewModel.onZoomRationOnPinchChanged()
-            }
+            // Wait till streamer exists to set it to the SurfaceView.
+            viewModel.inflateStreamerView(binding.preview)
+            binding.preview.visibility = View.VISIBLE
+        } else {
+            // Hide the preview view to save CPU resources
+            binding.preview.visibility = View.GONE
         }
-
-        // Wait till streamer exists to set it to the SurfaceView.
-        viewModel.inflateStreamerView(binding.preview)
 
         // Wait till streamer exists
         lifecycle.addObserver(viewModel.streamerLifeCycleObserver)

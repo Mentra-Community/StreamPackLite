@@ -46,6 +46,9 @@ class Configuration(context: Context) {
             
         var powerSavingMode: Boolean = true
             get() = sharedPref.getBoolean(resources.getString(R.string.video_power_saving_key), field)
+            
+        var disablePreview: Boolean = true
+            get() = sharedPref.getBoolean(resources.getString(R.string.video_disable_preview_key), field)
 
         var encoder: String = MediaFormat.MIMETYPE_VIDEO_AVC
             get() = sharedPref.getString(resources.getString(R.string.video_encoder_key), field)!!
@@ -56,7 +59,7 @@ class Configuration(context: Context) {
                 field.toString()
             )!!.toInt()
 
-        var resolution: Size = Size(176, 144) // QCIF resolution - small but still usable
+        var resolution: Size = Size(640, 480) // VGA resolution - good balance of quality and performance
             get() {
                 val res = sharedPref.getString(
                     resources.getString(R.string.video_resolution_key),

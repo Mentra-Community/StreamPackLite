@@ -11,6 +11,11 @@
             android:defaultValue="true"
             app:key="@string/video_power_saving_key"
             app:title="@string/video_power_saving" />
+            
+        <SwitchPreference
+            android:defaultValue="true"
+            app:key="@string/video_disable_preview_key"
+            app:title="@string/video_disable_preview" />
 
         <PreferenceCategory
             app:key="@string/video_settings_key"
@@ -29,7 +34,7 @@
                 app:useSimpleSummaryProvider="true" />
 
             <ListPreference
-                app:defaultValue="24"
+                app:defaultValue="15"
                 app:entries="@array/FpsEntries"
                 app:entryValues="@array/FpsEntries"
                 app:key="@string/video_fps_key"
