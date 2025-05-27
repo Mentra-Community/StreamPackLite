@@ -16,12 +16,14 @@
 package io.github.thibaultbee.streampack.internal.encoders
 
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import io.github.thibaultbee.streampack.data.Config
+import io.github.thibaultbee.streampack.data.VideoConfig
 import io.github.thibaultbee.streampack.error.StreamPackError
 import io.github.thibaultbee.streampack.internal.data.Frame
 import io.github.thibaultbee.streampack.internal.events.EventHandler
@@ -157,7 +159,25 @@ abstract class MediaCodecEncoder<T : Config>(
     open fun createMediaFormat(config: Config, withProfileLevel: Boolean) =
         config.getFormat(withProfileLevel)
 
-    open fun extendMediaFormat(config: Config, format: MediaFormat) {}
+    open fun extendMediaFormat(config: Config, format: MediaFormat) {
+        // Quality-focused parameters
+        if (config is VideoConfig) {
+            try {
+                // Bitrate mode: prefer quality over constant bitrate
+                if (config.mimeType == MediaFormat.MIMETYPE_VIDEO_AVC || 
+                    config.mimeType == MediaFormat.MIMETYPE_VIDEO_HEVC) {
+                    // Use VBR mode for better quality/size ratio for H.264/H.265
+                    format.setInteger(MediaFormat.KEY_BITRATE_MODE, 
+                        MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
+                }
+                
+                // Prioritize quality over speed when using AVC/HEVC for streaming
+                format.setInteger("quality", 1)
+            } catch (e: Exception) {
+                Logger.d(TAG, "Could not set quality parameters: ${e.message}")
+            }
+        }
+    }
 
     private fun createCodec(config: Config, withProfileLevel: Boolean): MediaCodec {
         val format = createMediaFormat(config, withProfileLevel)
@@ -181,7 +201,7 @@ abstract class MediaCodecEncoder<T : Config>(
             codec.setCallback(encoderCallback)
         }
 
-        // Power-efficient encoding parameters - safer version
+        // Power-efficient encoding parameters
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 // Set operating rate to normal (not low-latency) - more power efficient

@@ -32,6 +32,7 @@ import io.github.thibaultbee.streampack.internal.orientation.ISourceOrientationL
 import io.github.thibaultbee.streampack.internal.orientation.ISourceOrientationProvider
 import io.github.thibaultbee.streampack.internal.utils.av.video.DynamicRangeProfile
 import io.github.thibaultbee.streampack.listeners.OnErrorListener
+import io.github.thibaultbee.streampack.logger.Logger
 import java.util.concurrent.Executors
 
 /**
@@ -259,28 +260,37 @@ class VideoMediaCodecEncoder(
                 return
             }
             
-            // Aggressive frame throttling strictly capped at 24fps
+            // Get the current time for frame rate control
             val currentTimeMs = System.currentTimeMillis()
-            // Only throttle if we're already processing frames (not on startup)
-            if (surfaceTexture != null && !surfaceTexture!!.timestamp.equals(0L)) {
-                if (currentTimeMs - lastFrameTimeMs < minFrameIntervalMs) {
-                    // Skip frames to strictly maintain 24fps - saving significant CPU
-                    return
-                }
-                lastFrameTimeMs = currentTimeMs
-            }
-
+            val timeSinceLastFrame = currentTimeMs - lastFrameTimeMs
+            
+            // Process the frame immediately to avoid buffer growth
             executor.execute {
                 synchronized(this) {
                     eglSurface?.let {
                         it.makeCurrent()
-                        surfaceTexture.updateTexImage()
+                        
+                        // Always update to the most recent image to prevent backlog
+                        // This is critical - ensures we're not building up frames
+                        var frameCount = 0
+                        do {
+                            // Keep consuming frames until we get to the latest one
+                            surfaceTexture.updateTexImage()
+                            frameCount++
+                        } while (frameCount < 5 && surfaceTexture.timestamp != 0L && 
+                                 timeSinceLastFrame > minFrameIntervalMs * 2)
+                        
                         surfaceTexture.getTransformMatrix(stMatrix)
 
-                        // Use the identity matrix for MVP so our 2x2 FULL_RECTANGLE covers the viewport.
-                        fullFrameRect?.drawFrame(textureId, stMatrix)
-                        it.setPresentationTime(surfaceTexture.timestamp)
-                        it.swapBuffers()
+                        // Only actually draw and send the frame if enough time has passed
+                        if (timeSinceLastFrame >= minFrameIntervalMs || lastFrameTimeMs == 0L) {
+                            // Use the identity matrix for MVP so our 2x2 FULL_RECTANGLE covers the viewport
+                            fullFrameRect?.drawFrame(textureId, stMatrix)
+                            it.setPresentationTime(surfaceTexture.timestamp)
+                            it.swapBuffers()
+                            lastFrameTimeMs = currentTimeMs
+                        }
+                        
                         surfaceTexture.releaseTexImage()
                     }
                 }
@@ -320,6 +330,10 @@ class VideoMediaCodecEncoder(
             surfaceTexture?.setOnFrameAvailableListener(null)
             surfaceTexture?.release()
             surfaceTexture = null
+        }
+        
+        companion object {
+            private const val TAG = "CodecSurface"
         }
     }
 }

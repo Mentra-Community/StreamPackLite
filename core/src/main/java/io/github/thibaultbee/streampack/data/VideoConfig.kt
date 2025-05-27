@@ -85,11 +85,12 @@ class VideoConfig(
     /**
      * Video encoder I-frame interval in seconds.
      * This is a best effort as few camera can not generate a fixed framerate.
-     * For live streaming, I-frame interval should be really low. For recording, I-frame interval should be higher.
+     * For live streaming, a longer interval reduces bandwidth at the cost of resilience to packet loss.
+     * For recording, I-frame interval should be higher.
      * A value of 0 means that each frame is an I-frame.
      * On device with API < 25, this value will be rounded to an integer. So don't expect a precise value and any value < 0.5 will be considered as 0.
      */
-    val gopDuration: Float = 1f  // 1s between I frames
+    val gopDuration: Float = 3f  // 3s between I frames for better compression efficiency
 ) : Config(mimeType, startBitrate, profile) {
     init {
         require(mimeType.isVideo) { "MimeType must be video" }
@@ -220,10 +221,10 @@ class VideoConfig(
         fun getBestBitrate(resolution: Size): Int {
             val numOfPixels = resolution.width * resolution.height
             return when {
-                numOfPixels <= 320 * 240 -> 800000
-                numOfPixels <= 640 * 480 -> 1000000
-                numOfPixels <= 1280 * 720 -> 2000000
-                numOfPixels <= 1920 * 1080 -> 3500000
+                numOfPixels <= 320 * 240 -> 500000   // Lower for efficiency
+                numOfPixels <= 640 * 480 -> 800000   // Reduced for 640x480 (our default)
+                numOfPixels <= 1280 * 720 -> 1500000  // Slightly reduced
+                numOfPixels <= 1920 * 1080 -> 3000000
                 else -> 4000000
             }
         }
